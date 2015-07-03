@@ -13,7 +13,7 @@ type Worker struct {
 
 func New(in <-chan *framework.InData, out chan *framework.OutData) framework.Worker {
 	// Example: Enable the data source to send nil records
-	framework.DataSource.EnableNilRecords(0.01)
+	// framework.DataSource.EnableNilRecords(0.0001)
 
 	return &Worker{
 		inChan:  in,
@@ -25,14 +25,15 @@ func (w *Worker) Run() error {
 	log.Println("Starting worker")
 
 	// read from in channel
-	in := <-w.inChan
-	if in == nil {
-		// nil indicating worker should simulate a crash by returning an error
-		return errors.New("nil data received, terminating")
-	}
+	for in := range w.inChan {
+		if in == nil {
+			// nil indicating worker should simulate a crash by returning an error
+			return errors.New("nil data received, terminating")
+		}
 
-	// write results to result channel
-	w.outChan <- &framework.OutData{}
+		// write results to result channel
+		w.outChan <- &framework.OutData{}
+	}
 
 	log.Println("Worker finished")
 	return nil
