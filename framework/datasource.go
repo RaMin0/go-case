@@ -33,6 +33,8 @@ type InData struct {
 
 type Source interface {
 	Fill(chan *InData, <-chan struct{})
+	EnableNilRecords(float32)
+	SetStartingSequenceNumber(int)
 }
 
 func NewDefaultDataSource() Source {
