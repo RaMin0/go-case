@@ -6,14 +6,24 @@ import (
 )
 
 const (
-	InDataCount       = 100
-	RngSeed     int64 = 1234
+	InDataCount = 10000000
+
+	DataGenerationSeed    int64 = 1234
+	NilDataGenerationSeed int64 = 5678
+)
+
+type DataType string
+
+var (
+	DataTypeOne   DataType = "one"
+	DataTypeTwo   DataType = "two"
+	DataTypeThree DataType = "three"
 )
 
 var (
-	DataTypeOne   = []byte(`{"type":"one","data":{"client_version":"game-1.0","platform":"iphone","language":"danish"}}`)
-	DataTypeTwo   = []byte(`{"type":"two","data":{"boost_id":33226,"overpower":true}}`)
-	DataTypeThree = []byte(`{"type":"three","data":{"timestamp":"2006-01-02T15:04:05.999Z"}}`)
+	SampleDataTypeOne   = []byte(`{"type":"` + DataTypeOne + `","data":{"client_version":"game-1.0","platform":"iphone","language":"danish"}}`)
+	SampleDataTypeTwo   = []byte(`{"type":"` + DataTypeTwo + `","data":{"boost_id":33226,"overpower":true}}`)
+	SampleDataTypeThree = []byte(`{"type":"` + DataTypeThree + `","data":{"timestamp":"2006-01-02T15:04:05.999Z"}}`)
 )
 
 type InData struct {
@@ -28,15 +38,21 @@ type Source interface {
 func NewDefaultDataSource() Source {
 	return &DefaultDataSource{
 		startingSequenceNumber: -1,
+		nilRecords:             0,
 		running:                false,
 		lock:                   &sync.Mutex{},
 	}
 }
 
 type DefaultDataSource struct {
+	nilRecords             float32
 	running                bool
 	startingSequenceNumber int
 	lock                   *sync.Mutex
+}
+
+func (s *DefaultDataSource) EnableNilRecords(frequency float32) {
+	s.nilRecords = frequency
 }
 
 func (s *DefaultDataSource) SetStartingSequenceNumber(sequenceNumber int) {
@@ -65,11 +81,16 @@ func (s *DefaultDataSource) Fill(in chan *InData, term <-chan struct{}) {
 		}()
 
 		// initialize rng using a specific seed to create a deterministic sequence
-		rng := rand.New(rand.NewSource(RngSeed))
+		dataGenerationRng := rand.New(rand.NewSource(DataGenerationSeed))
+		nilGenerationRng := rand.New(rand.NewSource(NilDataGenerationSeed))
 
-		// advance rng to starting sequence number
-		for i := -1; i < s.startingSequenceNumber; i++ {
-			_ = rng.Int()
+		// advance rngs to starting sequence number
+		i := -1
+		for i < s.startingSequenceNumber {
+			if s.nilRecords <= nilGenerationRng.Float32() {
+				i++
+				_ = dataGenerationRng.Intn(100)
+			}
 		}
 		currentSequenceNumber := s.startingSequenceNumber + 1
 
@@ -79,17 +100,23 @@ func (s *DefaultDataSource) Fill(in chan *InData, term <-chan struct{}) {
 				SequenceNumber: currentSequenceNumber,
 			}
 
-			// get random number between 0 and 99
-			i := rng.Intn(100)
-			switch {
-			case i < 20:
-				data.Data = DataTypeOne
-			case i < 75:
-				data.Data = DataTypeTwo
-			case i < 90:
-				data.Data = DataTypeThree
-			default:
+			if s.nilRecords > nilGenerationRng.Float32() {
+				// insert nil data
 				data = nil
+			} else {
+				// determine which data should be used
+				i := dataGenerationRng.Intn(100)
+				switch {
+				case i < 20:
+					data.Data = SampleDataTypeOne
+				case i < 75:
+					data.Data = SampleDataTypeTwo
+				default:
+					data.Data = SampleDataTypeThree
+				}
+
+				// increment currentSequenceNumber
+				currentSequenceNumber++
 			}
 
 			select {
@@ -99,8 +126,6 @@ func (s *DefaultDataSource) Fill(in chan *InData, term <-chan struct{}) {
 			case in <- data:
 				// do nothing
 			}
-
-			currentSequenceNumber++
 		}
 
 		// shutdown

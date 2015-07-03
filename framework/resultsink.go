@@ -1,6 +1,9 @@
 package framework
 
-type OutData struct{}
+type OutData struct {
+	SequenceNumber int
+	Data           map[DataType][]byte
+}
 
 type Sink interface {
 	Drain(<-chan *OutData, <-chan struct{})
@@ -27,5 +30,4 @@ func (s *DefaultResultSink) Drain(out <-chan *OutData, term <-chan struct{}) {
 			}
 		}
 	}()
-
 }
