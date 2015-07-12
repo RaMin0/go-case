@@ -1,6 +1,9 @@
 package framework
 
 import (
+	"encoding/json"
+	"github.com/fantyz/go-case/framework/datatypes"
+	"log"
 	"math/rand"
 	"sync"
 )
@@ -10,20 +13,6 @@ const (
 
 	DataGenerationSeed    int64 = 1234
 	NilDataGenerationSeed int64 = 5678
-)
-
-type DataType string
-
-var (
-	DataTypeOne   DataType = "one"
-	DataTypeTwo   DataType = "two"
-	DataTypeThree DataType = "three"
-)
-
-var (
-	SampleDataTypeOne   = []byte(`{"type":"` + DataTypeOne + `","data":{"client_version":"game-1.0","platform":"iphone","language":"danish"}}`)
-	SampleDataTypeTwo   = []byte(`{"type":"` + DataTypeTwo + `","data":{"boost_id":33226,"overpower":true}}`)
-	SampleDataTypeThree = []byte(`{"type":"` + DataTypeThree + `","data":{"timestamp":"2006-01-02T15:04:05.999Z"}}`)
 )
 
 type InData struct {
@@ -62,7 +51,8 @@ func (s *DefaultDataSource) SetStartingSequenceNumber(sequenceNumber int) {
 	defer s.lock.Unlock()
 
 	if s.running {
-		panic("unable to set starting sequence number when running (cannot be called while running a worker)")
+		log.Printf("[DataSource] Unable to set starting sequence number when running (cannot be called while running a worker)")
+		return
 	}
 	s.startingSequenceNumber = sequenceNumber
 }
@@ -70,7 +60,8 @@ func (s *DefaultDataSource) SetStartingSequenceNumber(sequenceNumber int) {
 func (s *DefaultDataSource) Fill(in chan *InData, term <-chan struct{}) {
 	s.lock.Lock()
 	if s.running {
-		panic("data source is already running")
+		log.Printf("[DataSource] Already running!")
+		return
 	}
 	s.running = true
 	s.lock.Unlock()
@@ -107,15 +98,13 @@ func (s *DefaultDataSource) Fill(in chan *InData, term <-chan struct{}) {
 				data = nil
 			} else {
 				// determine which data should be used
-				i := dataGenerationRng.Intn(100)
-				switch {
-				case i < 20:
-					data.Data = SampleDataTypeOne
-				case i < 75:
-					data.Data = SampleDataTypeTwo
-				default:
-					data.Data = SampleDataTypeThree
-				}
+				i := dataGenerationRng.Intn(len(datatypes.Map))
+				randomUid := datatypes.Uids[i]
+				
+				data.Data, _ = json.Marshal(map[string]interface{} {
+					"type": randomUid,
+					"data": datatypes.Map[randomUid].Sample().Attrs(),  
+				})
 
 				// increment currentSequenceNumber
 				currentSequenceNumber++

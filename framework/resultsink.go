@@ -1,8 +1,12 @@
 package framework
 
+import (
+	"github.com/fantyz/go-case/framework/datatypes"
+)
+
 type OutData struct {
 	SequenceNumber int
-	Data           map[DataType][]byte
+	Data           map[datatypes.Uid][]byte
 }
 
 type Sink interface {

@@ -26,7 +26,7 @@ func New(newWorkerFunc NewWorkerFunc) *Framework {
 }
 
 func (f *Framework) Run() {
-	log.Printf("[FRAMEWORK] Starting...")
+	log.Printf("[Framework] Starting...")
 
 	for {
 		// create input, output and termination channels
@@ -55,6 +55,6 @@ func (f *Framework) Run() {
 			// no error, stop execution
 			break
 		}
-		log.Printf("[FRAMEWORK] Worker stopped, restarting it: %v", err)
+		log.Printf("[Framework] Worker stopped, restarting it: %v", err)
 	}
 }
